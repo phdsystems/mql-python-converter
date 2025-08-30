@@ -1,0 +1,58 @@
+FROM ubuntu:22.04
+
+# Avoid interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DISPLAY=:99
+ENV WINEDEBUG=-all
+
+# Install required packages
+RUN apt-get update && apt-get install -y \
+    wget \
+    software-properties-common \
+    xvfb \
+    x11vnc \
+    fluxbox \
+    novnc \
+    websockify \
+    python3 \
+    python3-numpy \
+    supervisor \
+    net-tools \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Wine repository and install Wine
+RUN dpkg --add-architecture i386 && \
+    wget -qO- https://dl.winehq.org/wine-builds/winehq.key | apt-key add - && \
+    add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ jammy main' && \
+    apt-get update && \
+    apt-get install -y --install-recommends winehq-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /app
+
+# Copy MT4 terminal files
+COPY server/mt4-terminal /app/mt4-terminal
+
+# Copy scripts
+COPY mt4_gui.sh /app/
+COPY mt4_web.sh /app/
+COPY mt4_headless.sh /app/
+
+# Make scripts executable and fix line endings
+RUN chmod +x *.sh && \
+    sed -i 's/\r$//' *.sh
+
+# Initialize Wine prefix
+RUN winecfg -v win7 && \
+    wineboot -u
+
+# Copy supervisor config
+COPY supervisord.conf /etc/supervisor/conf.d/mt4.conf
+
+# Expose ports
+EXPOSE 8080 5999
+
+# Start supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  mt4:
+    build:
+      context: .
+      dockerfile: Dockerfile.mt4
+    container_name: mt4-server
+    ports:
+      - "8080:8080"  # noVNC web interface
+      - "5999:5999"  # VNC direct connection
+    environment:
+      - DISPLAY=:99
+      - WINEDEBUG=-all
+    volumes:
+      # Mount MQL4 files for easy access
+      - ./server/mt4-terminal/MQL4:/app/mt4-terminal/MQL4
+      - ./server/mt4-terminal/history:/app/mt4-terminal/history
+      - ./server/mt4-terminal/logs:/app/mt4-terminal/logs
+    restart: unless-stopped
+    networks:
+      - mt4-network
+
+networks:
+  mt4-network:
+    driver: bridge
