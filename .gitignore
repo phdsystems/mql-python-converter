@@ -12,8 +12,8 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Data files
-*.csv
-*.json
+src/tools/data/*.csv
+src/tools/data/*.json
 !requirements.json
 
 # Test outputs
@@ -40,3 +40,4 @@ Thumbs.db
 *.tmp
 *.bak
 *.backup
+add_key.sh
