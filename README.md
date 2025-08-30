@@ -10,31 +10,38 @@ This repository demonstrates the conversion process with a sophisticated technic
 
 ```
 mql-python-converter/
-├── MQL5 Source Files
-│   ├── AdaptiveLaguerre_v2.mq5              # Original MQL5 indicator
-│   └── AdaptiveLaguerre_v2_improved.mq5     # Enhanced version with validation
+├── src/
+│   ├── mql5/                                # Original MQL5 source files
+│   │   ├── AdaptiveLaguerre_v2.mq5
+│   │   └── AdaptiveLaguerre_v2_improved.mq5
+│   │
+│   ├── python/                              # Python conversions
+│   │   ├── adaptive_laguerre_filter.py
+│   │   ├── adaptive_laguerre_advanced.py
+│   │   └── test_laguerre_simple.py
+│   │
+│   ├── tools/                               # Conversion and optimization tools
+│   │   ├── laguerre_optimizer.py
+│   │   ├── laguerre_optimizer_simple.py
+│   │   ├── optimize_gbpjpy.py
+│   │   └── download_forex_data.py
+│   │
+│   ├── tests/                               # Test suites
+│   │   ├── test_laguerre_filter.py
+│   │   └── test_visual_comparison.py
+│   │
+│   └── examples/                            # Usage examples
+│       └── example_usage.py
 │
-├── Python Conversions
-│   ├── adaptive_laguerre_filter.py          # Converted Python implementation
-│   ├── adaptive_laguerre_advanced.py        # Extended with backtesting
-│   └── test_laguerre_simple.py              # Standalone version (no dependencies)
+├── docs/                                    # Documentation
+│   ├── AdaptiveLaguerre_Formulas.md
+│   ├── adaptive_laguerre_python_docs.md
+│   └── laguerre_parameter_guide.md
 │
-├── Conversion Tools
-│   ├── laguerre_optimizer.py                # Parameter optimization framework
-│   ├── laguerre_optimizer_simple.py         # Simplified optimizer
-│   └── optimize_gbpjpy.py                   # Real data optimization example
-│
-├── Testing Framework
-│   ├── test_laguerre_filter.py              # Comprehensive test suite
-│   ├── test_visual_comparison.py            # Visual comparison tools
-│   └── download_forex_data.py               # Market data downloader
-│
-├── Documentation
-│   ├── AdaptiveLaguerre_Formulas.md         # Mathematical formulas
-│   ├── adaptive_laguerre_python_docs.md     # Python API documentation
-│   └── laguerre_parameter_guide.md          # Parameter optimization guide
-│
-└── README.md                                 # This file
+├── LICENSE
+├── README.md
+├── requirements.txt
+└── .gitignore
 ```
 
 ## 🔄 MQL to Python Conversion Features
@@ -50,7 +57,7 @@ mql-python-converter/
 
 ### Python Version
 ```python
-from adaptive_laguerre_filter import AdaptiveLaguerreFilter, SmoothMode
+from src.python.adaptive_laguerre_filter import AdaptiveLaguerreFilter, SmoothMode
 
 # Create filter
 alf = AdaptiveLaguerreFilter(
@@ -63,6 +70,18 @@ alf = AdaptiveLaguerreFilter(
 result = alf.calculate(price_data)
 filtered = result['laguerre']
 trend = result['trend']  # 1=up, 2=down
+```
+
+### Run Examples
+```bash
+# Run the example usage
+python src/examples/example_usage.py
+
+# Run tests
+python src/tests/test_laguerre_filter.py
+
+# Run optimization
+python src/tools/laguerre_optimizer_simple.py
 ```
 
 ### MQL5 Version
