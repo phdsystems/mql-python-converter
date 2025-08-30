@@ -18,14 +18,15 @@ pip install numpy pandas matplotlib
 ```
 
 ### Files
-- `adaptive_laguerre_filter.py` - Core implementation
-- `adaptive_laguerre_advanced.py` - Trading system with backtesting
-- `test_laguerre_simple.py` - Standalone version (no dependencies)
+- `src/python/adaptive_laguerre_filter.py` - Core implementation
+- `src/python/adaptive_laguerre_advanced.py` - Trading system with backtesting
+- `src/python/test_laguerre_simple.py` - Standalone version (no dependencies)
+- `src/python/data-ingestor/download_forex_data.py` - Market data downloader
 
 ## Quick Start
 
 ```python
-from adaptive_laguerre_filter import AdaptiveLaguerreFilter, SmoothMode
+from src.python.adaptive_laguerre_filter import AdaptiveLaguerreFilter, SmoothMode
 import numpy as np
 
 # Create filter instance
@@ -172,7 +173,7 @@ class SmoothMode(Enum):
 
 ```python
 import pandas as pd
-from adaptive_laguerre_filter import AdaptiveLaguerreFilter, SmoothMode
+from src.python.adaptive_laguerre_filter import AdaptiveLaguerreFilter, SmoothMode
 
 # Load your price data
 df = pd.read_csv('price_data.csv')
@@ -202,6 +203,8 @@ for i in range(1, len(result['trend'])):
 ### Example 2: Multi-Timeframe Analysis
 
 ```python
+from src.python.adaptive_laguerre_filter import AdaptiveLaguerreFilter
+
 # Short-term filter
 alf_short = AdaptiveLaguerreFilter(length=10, order=3)
 short_result = alf_short.calculate(prices)
@@ -405,6 +408,7 @@ prices_float32 = prices.astype(np.float32)  # Half memory vs float64
 
 ```python
 from multiprocessing import Pool
+from src.python.adaptive_laguerre_filter import AdaptiveLaguerreFilter
 
 def parallel_backtest(param_grid, prices):
     """Test multiple parameter combinations in parallel"""
@@ -452,7 +456,9 @@ gamma = smooth(efficiency_ratio, smooth_period, smooth_mode)
 
 ## Further Resources
 
-- [Original MQL5 Implementation](AdaptiveLaguerre_v2.mq5)
+- [Original MQL5 Implementation](../src/mql5/AdaptiveLaguerre_v2.mq5)
 - [Mathematical Formulas](AdaptiveLaguerre_Formulas.md)
 - [Parameter Optimization Guide](laguerre_parameter_guide.md)
-- [Simple Test Script](test_laguerre_simple.py)
+- [Simple Test Script](../src/python/test_laguerre_simple.py)
+- [Optimization Tools](../src/tools/)
+- [Market Data Downloader](../src/python/data-ingestor/download_forex_data.py)

@@ -18,13 +18,17 @@ mql-python-converter/
 │   ├── python/                              # Python conversions
 │   │   ├── adaptive_laguerre_filter.py
 │   │   ├── adaptive_laguerre_advanced.py
-│   │   └── test_laguerre_simple.py
+│   │   ├── test_laguerre_simple.py
+│   │   └── data-ingestor/                  # Data ingestion module
+│   │       ├── download_forex_data.py
+│   │       └── data/                       # Market data storage
+│   │           ├── gbpjpy_d1_5years.csv
+│   │           └── optimization_results.json
 │   │
 │   ├── tools/                               # Conversion and optimization tools
 │   │   ├── laguerre_optimizer.py
 │   │   ├── laguerre_optimizer_simple.py
-│   │   ├── optimize_gbpjpy.py
-│   │   └── download_forex_data.py
+│   │   └── optimize_gbpjpy.py
 │   │
 │   ├── tests/                               # Test suites
 │   │   ├── test_laguerre_filter.py
@@ -82,6 +86,12 @@ python src/tests/test_laguerre_filter.py
 
 # Run optimization
 python src/tools/laguerre_optimizer_simple.py
+
+# Download forex data
+python src/python/data-ingestor/download_forex_data.py
+
+# Optimize on real data
+python src/tools/optimize_gbpjpy.py
 ```
 
 ### MQL5 Version
@@ -118,9 +128,9 @@ python src/tools/laguerre_optimizer_simple.py
 
 ## 📚 Documentation
 
-- **[Python API Documentation](adaptive_laguerre_python_docs.md)**: Complete Python reference
-- **[Parameter Guide](laguerre_parameter_guide.md)**: Detailed parameter optimization
-- **[Mathematical Formulas](AdaptiveLaguerre_Formulas.md)**: Core equations explained
+- **[Python API Documentation](docs/adaptive_laguerre_python_docs.md)**: Complete Python reference
+- **[Parameter Guide](docs/laguerre_parameter_guide.md)**: Detailed parameter optimization
+- **[Mathematical Formulas](docs/AdaptiveLaguerre_Formulas.md)**: Core equations explained
 
 ## 🔧 Recommended Settings
 
