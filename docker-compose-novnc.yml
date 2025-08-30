@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  mt4-novnc:
+    build:
+      context: .
+      dockerfile: Dockerfile.novnc
+    container_name: mt4-novnc
+    hostname: mt4-terminal
+    ports:
+      - "6080:6080"  # NoVNC web interface
+      - "5999:5999"  # VNC port (optional, for VNC client access)
+    volumes:
+      # Mount MT4 data directory for persistence
+      - ./mt4-data:/home/mt4user/mt4/MQL4:rw
+      - ./mt4-logs:/var/log/supervisor:rw
+      # Mount shared directory for file exchange
+      - ./shared:/home/mt4user/shared:rw
+    environment:
+      - DISPLAY=:99
+      - VNC_PASSWORD=mt4vnc
+      - NOVNC_PORT=6080
+      - VNC_PORT=5999
+      - TZ=UTC
+      - WINEDEBUG=-all
+    restart: unless-stopped
+    networks:
+      - mt4net
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    # Security options
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/dri:/dev/dri  # For hardware acceleration (optional)
+    shm_size: 1gb
+    stdin_open: true
+    tty: true
+
+networks:
+  mt4net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  mt4-data:
+    driver: local
+  mt4-logs:
+    driver: local
+  shared:
+    driver: local

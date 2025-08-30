@@ -1,0 +1,100 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DISPLAY=:1
+ENV VNC_PORT=5901
+ENV NOVNC_PORT=6080
+ENV VNC_PASSWORD=mt4vnc
+ENV PYTHONUNBUFFERED=1
+ENV WINEDEBUG=-all
+
+# Install required packages
+RUN apt-get update && apt-get install -y \
+    wget \
+    software-properties-common \
+    gnupg2 \
+    xvfb \
+    x11vnc \
+    novnc \
+    websockify \
+    supervisor \
+    fluxbox \
+    xterm \
+    net-tools \
+    curl \
+    vim \
+    python3 \
+    python3-pip \
+    python3-dev \
+    git \
+    build-essential \
+    procps \
+    psmisc \
+    dos2unix \
+    && dpkg --add-architecture i386 \
+    && wget -qO- https://dl.winehq.org/wine-builds/winehq.key | apt-key add - \
+    && add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ jammy main' \
+    && apt-get update \
+    && apt-get install -y --install-recommends winehq-stable \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create user for Wine with proper UID/GID
+RUN groupadd -g 1000 wineuser \
+    && useradd -m -u 1000 -g 1000 -s /bin/bash wineuser \
+    && echo "wineuser:wineuser" | chpasswd \
+    && usermod -aG sudo wineuser
+
+# Setup VNC password
+RUN mkdir -p /home/wineuser/.vnc \
+    && x11vnc -storepasswd ${VNC_PASSWORD} /home/wineuser/.vnc/passwd \
+    && chown -R wineuser:wineuser /home/wineuser/.vnc
+
+# Setup noVNC
+RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
+
+# Create application directories with proper permissions
+RUN mkdir -p /app/converter \
+    && mkdir -p /app/mt4-terminal \
+    && mkdir -p /app/logs \
+    && mkdir -p /app/data \
+    && mkdir -p /app/scripts \
+    && mkdir -p /var/run/supervisor \
+    && chown -R wineuser:wineuser /app \
+    && chmod 755 /var/run/supervisor
+
+# Copy application files
+WORKDIR /app/converter
+COPY --chown=wineuser:wineuser . .
+
+# Install Python dependencies
+RUN pip3 install --no-cache-dir flask flask-cors websockets numpy pandas || true
+
+# Copy and prepare scripts
+COPY --chown=wineuser:wineuser docker-entrypoint.sh /app/scripts/
+COPY --chown=wineuser:wineuser healthcheck.sh /app/scripts/
+RUN chmod +x /app/scripts/*.sh && dos2unix /app/scripts/*.sh || true
+
+# Setup supervisor configuration with proper permissions
+COPY supervisord-safe.conf /etc/supervisor/conf.d/supervisord.conf
+RUN chmod 644 /etc/supervisor/conf.d/supervisord.conf
+
+# Create Wine prefix as wineuser
+USER wineuser
+RUN winecfg -v win10 \
+    && wineboot --init \
+    && mkdir -p /home/wineuser/.wine/drive_c/Program\ Files\ \(x86\)/
+
+# Switch back to root for supervisor
+USER root
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /app/scripts/healthcheck.sh || exit 1
+
+# Expose ports
+EXPOSE ${VNC_PORT} ${NOVNC_PORT} 8000 9090
+
+# Entry point with proper signal handling
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

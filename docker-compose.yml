@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mt4-converter:
+    build: .
+    container_name: mt4-converter
+    restart: unless-stopped
+    ports:
+      - "6080:6080"  # noVNC web interface
+      - "5901:5901"  # VNC port (optional, for VNC client access)
+      - "8000:8000"  # Python API server
+      - "9090:9090"  # Data bridge port
+    environment:
+      - DISPLAY=:1
+      - VNC_PASSWORD=mt4vnc
+      - VNC_RESOLUTION=1280x720
+      - VNC_DEPTH=24
+      - PYTHONUNBUFFERED=1
+      - WINEDEBUG=-all
+    volumes:
+      - mt4-data:/home/wineuser/.wine
+      - ./src:/app/converter/src
+      - ./examples:/app/converter/examples
+      - ./backtesting:/app/converter/backtesting
+      - ./server:/app/converter/server
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./PythonDataBridge.mq4:/app/mt4-terminal/MQL4/Experts/PythonDataBridge.mq4
+    networks:
+      - mt4-network
+    shm_size: '2gb'
+    stdin_open: true
+    tty: true
+    
+  python-server:
+    build: .
+    container_name: python-server
+    command: python3 /app/converter/server/mt4_server.py
+    restart: unless-stopped
+    ports:
+      - "9091:9090"  # Alternative port for Python server
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/converter/src
+      - ./server:/app/converter/server
+      - ./logs:/app/logs
+      - ./data:/app/data
+    networks:
+      - mt4-network
+    depends_on:
+      - mt4-converter
+    
+volumes:
+  mt4-data:
+    driver: local
+
+networks:
+  mt4-network:
+    driver: bridge

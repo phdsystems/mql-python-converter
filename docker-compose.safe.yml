@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  mt4-safe:
+    build: 
+      context: .
+      dockerfile: Dockerfile.mt4-safe
+    image: mt4-converter-safe:latest
+    container_name: mt4-safe
+    hostname: mt4-safe
+    restart: unless-stopped
+    
+    ports:
+      - "6080:6080"  # noVNC web interface
+      - "5901:5901"  # VNC port
+      - "8000:8000"  # Python API server
+      - "9090:9090"  # Data bridge port
+    
+    environment:
+      - DISPLAY=:1
+      - VNC_PASSWORD=mt4vnc
+      - VNC_RESOLUTION=1280x720
+      - VNC_DEPTH=24
+      - PYTHONUNBUFFERED=1
+      - WINEDEBUG=-all
+      - TZ=UTC
+    
+    volumes:
+      # Persistent Wine directory
+      - mt4-wine:/home/wineuser/.wine
+      
+      # Application code (bind mounts for development)
+      - ./src:/app/converter/src:rw
+      - ./examples:/app/converter/examples:rw
+      - ./backtesting:/app/converter/backtesting:rw
+      - ./server:/app/converter/server:rw
+      
+      # Data and logs
+      - ./logs:/app/logs:rw
+      - ./data:/app/data:rw
+      
+      # MT4 Expert Advisor
+      - ./PythonDataBridge.mq4:/app/mt4-terminal/MQL4/Experts/PythonDataBridge.mq4:ro
+      
+      # Scripts
+      - ./docker-entrypoint.sh:/app/scripts/docker-entrypoint.sh:ro
+      - ./healthcheck.sh:/app/scripts/healthcheck.sh:ro
+    
+    networks:
+      - mt4-network
+    
+    # Shared memory size for GUI applications
+    shm_size: '2gb'
+    
+    # Keep stdin open and allocate TTY
+    stdin_open: true
+    tty: true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Health check
+    healthcheck:
+      test: ["/app/scripts/healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: Separate Python API server
+  python-api:
+    build: 
+      context: .
+      dockerfile: Dockerfile.mt4-safe
+    image: mt4-converter-safe:latest
+    container_name: python-api
+    hostname: python-api
+    restart: unless-stopped
+    
+    command: python3 /app/converter/server/mt4_server.py
+    
+    ports:
+      - "8001:8000"  # Alternative API port
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    
+    volumes:
+      - ./src:/app/converter/src:ro
+      - ./server:/app/converter/server:ro
+      - ./logs:/app/logs:rw
+      - ./data:/app/data:rw
+    
+    networks:
+      - mt4-network
+    
+    depends_on:
+      mt4-safe:
+        condition: service_healthy
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mt4-wine:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/mt4-wine-data
+
+networks:
+  mt4-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
