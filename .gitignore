@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Data files
+*.csv
+*.json
+!requirements.json
+
+# Test outputs
+test_report.json
+optimization_results*.json
+*.png
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MetaTrader
+*.ex5
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
