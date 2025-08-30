@@ -1,0 +1,27 @@
+//@version=5
+indicator("Simple MA Cross", overlay=true)
+
+// Input parameters
+fast_length = input.int(9, title="Fast MA Length", minval=1)
+slow_length = input.int(21, title="Slow MA Length", minval=1)
+ma_type = input.string("SMA", title="MA Type", options=["SMA", "EMA"])
+
+// Calculate moving averages
+fast_ma = ma_type == "SMA" ? ta.sma(close, fast_length) : ta.ema(close, fast_length)
+slow_ma = ma_type == "SMA" ? ta.sma(close, slow_length) : ta.ema(close, slow_length)
+
+// Generate signals
+bullish_cross = ta.crossover(fast_ma, slow_ma)
+bearish_cross = ta.crossunder(fast_ma, slow_ma)
+
+// Plot
+plot(fast_ma, color=color.blue, title="Fast MA")
+plot(slow_ma, color=color.red, title="Slow MA")
+
+// Plot signals
+plotshape(bullish_cross, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small)
+plotshape(bearish_cross, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small)
+
+// Alert conditions
+alertcondition(bullish_cross, title="Bullish Cross", message="Fast MA crossed above Slow MA")
+alertcondition(bearish_cross, title="Bearish Cross", message="Fast MA crossed below Slow MA")

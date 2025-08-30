@@ -1,6 +1,6 @@
-# MQL to Python Converter
+# MQL & Pine Script to Python Converter
 
-A comprehensive toolkit for converting MQL4/MQL5 trading indicators and strategies to Python. Includes complete implementation examples, testing frameworks, and optimization tools.
+A comprehensive toolkit for converting MQL4/MQL5 and Pine Script trading indicators to self-hosted Python code. Includes complete implementation examples, testing frameworks, and optimization tools with adapter patterns.
 
 ## Featured Example: Adaptive Laguerre Filter
 
@@ -48,8 +48,9 @@ mql-python-converter/
 └── .gitignore
 ```
 
-## 🔄 MQL to Python Conversion Features
+## 🔄 Conversion Features
 
+### MQL5 → Python
 - **Complete Code Translation**: Convert MQL4/MQL5 indicators to Python
 - **Mathematical Preservation**: Maintain exact calculations and formulas
 - **Testing Framework**: Validate converted code against original
@@ -57,9 +58,36 @@ mql-python-converter/
 - **Backtesting Support**: Full trading system implementation
 - **Documentation Generation**: Automatic API documentation
 
+### Pine Script → Python (NEW!)
+- **Parse Pine Script v5**: Full syntax support
+- **Convert to Self-Hosted Python**: Run anywhere, no TradingView lock-in
+- **Technical Indicators**: All major indicators supported
+- **Signal Generation**: Convert alerts to Python signals
+- **Any Data Source**: Use with any broker or data feed
+
 ## 🚀 Quick Start
 
-### Python Version
+### Converting Pine Script to Python
+```python
+from src.pinescript.pinescript_converter import convert_pinescript_to_python
+
+# Your Pine Script code
+pine_code = """
+//@version=5
+indicator("My Indicator", overlay=true)
+fast_ma = ta.sma(close, 9)
+slow_ma = ta.sma(close, 21)
+plot(fast_ma, color=color.blue)
+plot(slow_ma, color=color.red)
+"""
+
+# Convert to Python
+python_code = convert_pinescript_to_python(pine_code)
+
+# Now you can run it anywhere - no TradingView required!
+```
+
+### Using Converted MQL5 Indicators
 ```python
 from src.python.adaptive_laguerre_filter import AdaptiveLaguerreFilter, SmoothMode
 

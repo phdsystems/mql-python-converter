@@ -1,0 +1,33 @@
+//@version=5
+indicator("RSI Divergence", overlay=false)
+
+// Inputs
+rsi_length = input.int(14, title="RSI Length", minval=1)
+overbought = input.int(70, title="Overbought Level")
+oversold = input.int(30, title="Oversold Level")
+lookback = input.int(5, title="Divergence Lookback")
+
+// Calculate RSI
+rsi_value = ta.rsi(close, rsi_length)
+
+// Find pivot points
+pivot_high = ta.highest(high, lookback)
+pivot_low = ta.lowest(low, lookback)
+
+// Check for divergence
+bullish_div = close == pivot_low and rsi_value > ta.lowest(rsi_value, lookback)
+bearish_div = close == pivot_high and rsi_value < ta.highest(rsi_value, lookback)
+
+// Plot RSI
+plot(rsi_value, color=color.purple, title="RSI")
+hline(overbought, color=color.red, linestyle=hline.style_dashed)
+hline(oversold, color=color.green, linestyle=hline.style_dashed)
+hline(50, color=color.gray, linestyle=hline.style_dotted)
+
+// Background color for overbought/oversold
+bgcolor(rsi_value > overbought ? color.new(color.red, 90) : na)
+bgcolor(rsi_value < oversold ? color.new(color.green, 90) : na)
+
+// Alert on divergence
+alertcondition(bullish_div, title="Bullish Divergence", message="Bullish RSI Divergence detected")
+alertcondition(bearish_div, title="Bearish Divergence", message="Bearish RSI Divergence detected")

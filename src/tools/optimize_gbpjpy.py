@@ -8,6 +8,11 @@ from typing import Dict, List, Tuple
 from datetime import datetime
 
 # Import our modules
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '../python/data-ingestor'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../python'))
+
 from download_forex_data import load_data, get_price_series, calculate_returns
 from laguerre_optimizer_simple import SimpleOptimizer, ParameterRecommender
 from test_laguerre_simple import SimpleLaguerreFilter
@@ -15,7 +20,7 @@ from test_laguerre_simple import SimpleLaguerreFilter
 class GBPJPYOptimizer:
     """Optimize Adaptive Laguerre Filter for GBP/JPY trading"""
     
-    def __init__(self, data_file: str = 'gbpjpy_d1_5years.json'):
+    def __init__(self, data_file: str = '../python/data-ingestor/data/gbpjpy_d1_5years.json'):
         """Initialize with GBP/JPY data"""
         self.data = load_data(data_file)
         self.prices = get_price_series(self.data, 'close')
@@ -356,7 +361,7 @@ def main():
     print("="*70)
     
     # Create optimizer
-    optimizer = GBPJPYOptimizer('gbpjpy_d1_5years.json')
+    optimizer = GBPJPYOptimizer()
     
     # Run optimization
     results = optimizer.optimize_parameters()
