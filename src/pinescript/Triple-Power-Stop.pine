@@ -1,0 +1,98 @@
+//@version=6
+indicator("Triple Power Stop (CHE)", overlay=true)
+
+// Indicator parameters
+
+// ATR Length: Defines the period for calculating the ATR. A higher value smooths volatility.
+tps_atrLength = input.int(14, minval=1, title="ATR Length", tooltip="Period for calculating the Average True Range (ATR). Affects the sensitivity of the indicator.")
+
+// Base ATR Multiplier: Scaling factor for the ATR to calculate the stop levels.
+tps_baseAtrMultiplier = input.float(2.0, minval=0.1, step=0.1, title="Base ATR Multiplier", tooltip="Multiplier for adjusting stop levels based on volatility.")
+
+// Multiplier 1: Defines the factor for the first resolution level.
+tps_multiplier1 = input(1, title="Multiplier 1", tooltip="First multiplier for adjusting the time resolution.")
+
+// Multiplier 2: Defines the factor for the second resolution level.
+tps_multiplier2 = input(2, title="Multiplier 2", tooltip="Second multiplier for adjusting the time resolution.")
+
+// Multiplier 3: Defines the factor for the third resolution level.
+tps_multiplier3 = input(3, title="Multiplier 3", tooltip="Third multiplier for adjusting the time resolution.")
+
+// Number of Labels: Controls how many labels are displayed on the chart.
+tps_labelCount = input.int(4, minval=1, maxval=10, title="Number of Labels", tooltip="Maximum number of labels to display on the chart.")
+
+// Function to calculate resolution based on the multiplier
+tps_calcResolution(_multiplier) =>
+    _resolution = timeframe.ismonthly  ? str.tostring(timeframe.multiplier * _multiplier) + "M" :
+                  timeframe.isweekly   ? str.tostring(timeframe.multiplier * _multiplier) + "W" :
+                  timeframe.isdaily    ? str.tostring(timeframe.multiplier * _multiplier) + "D" :
+                  timeframe.isintraday ? str.tostring(timeframe.multiplier * _multiplier) : "60"
+    _resolution
+
+// Calculating resolutions for the three multipliers
+tps_calculatedResolution1 = tps_calcResolution(tps_multiplier1)
+tps_calculatedResolution2 = tps_calcResolution(tps_multiplier2)
+tps_calculatedResolution3 = tps_calcResolution(tps_multiplier3)
+
+// Functions for calculating dynamic ATR multipliers and stop levels
+tps_calcDynamicAtrMultiplier(_baseAtrMultiplier, _volatilityFactor, _atr) =>
+    _dynamicAtrMultiplier = _baseAtrMultiplier * (_volatilityFactor / _atr)
+    na(_dynamicAtrMultiplier) or _dynamicAtrMultiplier == 0 ? _baseAtrMultiplier : _dynamicAtrMultiplier
+
+tps_calcStopLevels(_close, _atr, _dynamicAtrMultiplier, _prevStopLevel) =>
+    _longStop  = _close - (_atr * _dynamicAtrMultiplier)
+    _shortStop = _close + (_atr * _dynamicAtrMultiplier)
+    _stopLevel = na(_prevStopLevel) ? _longStop : (_close > _prevStopLevel ? math.max(_longStop, _prevStopLevel) : math.min(_shortStop, _prevStopLevel))
+    [_stopLevel, _longStop, _shortStop]
+
+// Function for calculating stop levels and trends on the higher timeframe
+tps_htf_calculations() =>
+    var float tps_htfStopLevel = na
+    tps_htf_close = ta.sma(close, 10)  // Smoothing the close price (e.g., SMA(10))
+    tps_htf_atr = ta.atr(tps_atrLength)
+    tps_volatilityFactor_htf = ta.stdev(close, tps_atrLength)
+    tps_dynamicAtrMultiplier_htf = tps_calcDynamicAtrMultiplier(tps_baseAtrMultiplier, tps_volatilityFactor_htf, tps_htf_atr)
+    [_newHtfStopLevel, longStop_htf, shortStop_htf] = tps_calcStopLevels(tps_htf_close, tps_htf_atr, tps_dynamicAtrMultiplier_htf, tps_htfStopLevel)
+    tps_htfStopLevel := _newHtfStopLevel
+    tps_isUpTrend_htf = tps_htf_close > tps_htfStopLevel
+    [tps_htfStopLevel, tps_isUpTrend_htf]
+
+// Retrieve stop levels and trend information for all resolutions
+[tps_htfStopLevel1, tps_isUpTrend_htf1] = request.security(syminfo.tickerid, tps_calculatedResolution1, tps_htf_calculations(), lookahead=barmerge.lookahead_on, gaps=barmerge.gaps_off)
+[tps_htfStopLevel2, tps_isUpTrend_htf2] = request.security(syminfo.tickerid, tps_calculatedResolution2, tps_htf_calculations(), lookahead=barmerge.lookahead_on, gaps=barmerge.gaps_off)
+[tps_htfStopLevel3, tps_isUpTrend_htf3] = request.security(syminfo.tickerid, tps_calculatedResolution3, tps_htf_calculations(), lookahead=barmerge.lookahead_on, gaps=barmerge.gaps_off)
+
+// Detecting trend changes
+tps_trendChange1 = ta.change(tps_isUpTrend_htf1)
+tps_trendChange2 = ta.change(tps_isUpTrend_htf2)
+tps_trendChange3 = ta.change(tps_isUpTrend_htf3)
+
+// Plot stop levels on the chart
+plot(tps_htfStopLevel1, color=tps_isUpTrend_htf1 ? color.green : color.red, style=plot.style_line, linewidth=2, title="TPS Stop Level 1")
+plot(tps_htfStopLevel2, color=tps_isUpTrend_htf2 ? color.green : color.red, style=plot.style_line, linewidth=2, title="TPS Stop Level 2")
+plot(tps_htfStopLevel3, color=tps_isUpTrend_htf3 ? color.green : color.red, style=plot.style_line, linewidth=2, title="TPS Stop Level 3")
+
+// Conditions for long and short positions
+tps_longCondition = tps_isUpTrend_htf1 and tps_isUpTrend_htf2 and tps_isUpTrend_htf3 
+tps_shortCondition = not tps_isUpTrend_htf1 and not tps_isUpTrend_htf2 and not tps_isUpTrend_htf3 
+
+// Track position state
+var tps_positionState = 0
+if tps_longCondition
+    tps_positionState := 1
+else if tps_shortCondition
+    tps_positionState := -1
+else
+    tps_positionState := tps_positionState[1]
+
+// Entry signals
+tps_goLong = tps_longCondition and tps_positionState == 1 and tps_positionState[1] != 1
+tps_goShort = tps_shortCondition and tps_positionState == -1 and tps_positionState[1] != -1
+
+// Plot entry signals
+plotshape(tps_goLong, title="TPS Long Entry", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, offset=0, force_overlay=true)
+plotshape(tps_goShort, title="TPS Short Entry", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, offset=0, force_overlay=true)
+
+// Alert conditions
+alertcondition(tps_goLong, title="Long Entry Alert", message="Triple Power Stop [CHE]: Long Signal\nSymbol: {{ticker}}\nPrice: {{close}}")
+alertcondition(tps_goShort, title="Short Entry Alert", message="Triple Power Stop [CHE]: Short Signal\nSymbol: {{ticker}}\nPrice: {{close}}")
