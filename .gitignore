@@ -12,8 +12,8 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Data files
-src/tools/data/*.csv
-src/tools/data/*.json
+src/python/data-ingestor/data/*.csv
+src/python/data-ingestor/data/*.json
 !requirements.json
 
 # Test outputs
