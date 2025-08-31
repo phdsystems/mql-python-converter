@@ -25,7 +25,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     vim \
     python3 \
-    python3-pip \
     python3-dev \
     git \
     build-essential \
@@ -60,8 +59,22 @@ RUN mkdir -p /app/converter \
 WORKDIR /app/converter
 COPY --chown=wineuser:wineuser . .
 
+# Install uv package manager
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt || true
+COPY pyproject.toml /app/converter/
+COPY --chown=wineuser:wineuser src /app/converter/src/
+RUN cd /app/converter && \
+    uv venv .venv && \
+    . .venv/bin/activate && \
+    uv pip install -e . && \
+    chown -R wineuser:wineuser .venv
+
+# Set Python environment
+ENV PATH="/app/converter/.venv/bin:$PATH"
+ENV VIRTUAL_ENV=/app/converter/.venv
 
 # Copy configuration files
 COPY --chown=wineuser:wineuser startup.sh /app/

@@ -65,6 +65,37 @@ mql-python-converter/
 - **Signal Generation**: Convert alerts to Python signals
 - **Any Data Source**: Use with any broker or data feed
 
+## 📦 Installation
+
+### Using uv (Recommended)
+
+```bash
+# Install uv package manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install dependencies
+uv venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+uv pip install -e .
+
+# Install with optimization libraries
+uv pip install -e ".[optimization]"
+```
+
+### Using pip (Legacy)
+
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install optimization libraries
+pip install -r requirements-optimization.txt
+```
+
 ## 🚀 Quick Start
 
 ### Converting Pine Script to Python

@@ -35,7 +35,7 @@ services:
   python-server:
     build: .
     container_name: python-server
-    command: python3 /app/converter/server/mt4_server.py
+    command: python /app/converter/server/mt4_server.py
     restart: unless-stopped
     ports:
       - "9091:9090"  # Alternative port for Python server
