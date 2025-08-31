@@ -1,0 +1,107 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DISPLAY=:1
+ENV VNC_PORT=5901
+ENV NOVNC_PORT=6080
+ENV VNC_PASSWORD=mt4vnc
+ENV WINE_MONO_VERSION=7.4.0
+ENV WINE_GECKO_VERSION=2.47.3
+ENV PYTHONUNBUFFERED=1
+
+# Install required packages
+RUN apt-get update && apt-get install -y \
+    wget \
+    software-properties-common \
+    gnupg2 \
+    xvfb \
+    x11vnc \
+    novnc \
+    websockify \
+    supervisor \
+    fluxbox \
+    xterm \
+    net-tools \
+    curl \
+    vim \
+    python3 \
+    python3-pip \
+    python3-dev \
+    git \
+    build-essential \
+    sudo \
+    && dpkg --add-architecture i386 \
+    && wget -qO- https://dl.winehq.org/wine-builds/winehq.key | apt-key add - \
+    && add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ jammy main' \
+    && apt-get update \
+    && apt-get install -y --install-recommends winehq-stable \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user with specific UID/GID for consistency
+RUN groupadd -g 1000 appuser \
+    && useradd -m -u 1000 -g 1000 -s /bin/bash appuser \
+    && echo "appuser:appuser" | chpasswd
+
+# Grant specific sudo permissions only for required commands (if needed)
+# For production, remove sudo entirely
+RUN echo "appuser ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl" >> /etc/sudoers.d/appuser \
+    && chmod 0440 /etc/sudoers.d/appuser
+
+# Create application directories with proper ownership
+RUN mkdir -p /app/converter \
+    && mkdir -p /app/mt4-terminal \
+    && mkdir -p /app/logs \
+    && mkdir -p /app/data \
+    && mkdir -p /home/appuser/.vnc \
+    && mkdir -p /home/appuser/.wine \
+    && mkdir -p /var/run/supervisor \
+    && chown -R appuser:appuser /app \
+    && chown -R appuser:appuser /home/appuser \
+    && chown -R appuser:appuser /var/run/supervisor
+
+# Setup VNC password as appuser
+USER appuser
+RUN x11vnc -storepasswd ${VNC_PASSWORD} /home/appuser/.vnc/passwd
+
+# Setup noVNC (as root for system install, then set permissions)
+USER root
+RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html \
+    && chown -R appuser:appuser /usr/share/novnc
+
+# Copy application files with proper ownership
+WORKDIR /app/converter
+COPY --chown=appuser:appuser . .
+
+# Install Python dependencies as appuser
+USER appuser
+RUN pip3 install --user --no-cache-dir -r requirements.txt || true
+
+# Copy configuration files
+COPY --chown=appuser:appuser startup.sh /app/
+COPY --chown=appuser:appuser supervisord-secure.conf /home/appuser/supervisord.conf
+RUN chmod +x /app/startup.sh
+
+# Configure Wine prefix as appuser
+RUN winecfg -v win10 \
+    && wineboot --init \
+    && mkdir -p "/home/appuser/.wine/drive_c/Program Files (x86)"
+
+# Set working directory
+WORKDIR /app/converter
+
+# Expose ports (>1024 for non-root binding)
+EXPOSE 5901
+EXPOSE 6080
+EXPOSE 8000
+EXPOSE 9090
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:6080/ || exit 1
+
+# Run as non-root user
+USER appuser
+
+# Start supervisor as non-root
+CMD ["/usr/bin/supervisord", "-n", "-c", "/home/appuser/supervisord.conf"]

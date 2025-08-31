@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  mt4-converter:
+    build: 
+      context: .
+      dockerfile: Dockerfile.secure
+    container_name: mt4-converter-secure
+    restart: unless-stopped
+    
+    # Security configurations
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    read_only: false  # Set to true in production if possible
+    
+    # User configuration
+    user: "1000:1000"  # Run as appuser (UID:GID)
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    ports:
+      - "6080:6080"  # noVNC web interface
+      - "5901:5901"  # VNC port (optional, for VNC client access)
+      - "8000:8000"  # Python API server
+      - "9090:9090"  # Data bridge port
+    
+    environment:
+      - DISPLAY=:1
+      - VNC_PASSWORD=mt4vnc
+      - VNC_RESOLUTION=1280x720
+      - VNC_DEPTH=24
+      - PYTHONUNBUFFERED=1
+      - WINEDEBUG=-all
+      - HOME=/home/appuser
+      - USER=appuser
+    
+    volumes:
+      # Use named volumes for better security
+      - mt4-data:/home/appuser/.wine:rw
+      - converter-src:/app/converter/src:rw
+      - converter-examples:/app/converter/examples:rw
+      - converter-backtesting:/app/converter/backtesting:rw
+      - converter-server:/app/converter/server:rw
+      - app-logs:/app/logs:rw
+      - app-data:/app/data:rw
+      
+      # Mount source code for development (remove in production)
+      - ./src:/app/converter/src:ro
+      - ./examples:/app/converter/examples:ro
+      - ./server:/app/converter/server:ro
+      - ./PythonDataBridge.mq4:/app/mt4-terminal/MQL4/Experts/PythonDataBridge.mq4:ro
+    
+    networks:
+      - mt4-network
+    
+    # Shared memory for X11
+    shm_size: '1gb'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    stdin_open: true
+    tty: true
+    
+  python-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.secure
+    container_name: python-server-secure
+    command: python3 /app/converter/server/mt4_server.py
+    restart: unless-stopped
+    
+    # Security configurations
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+    read_only: false
+    
+    # User configuration
+    user: "1000:1000"  # Run as appuser
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    ports:
+      - "9091:9090"  # Alternative port for Python server
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      - HOME=/home/appuser
+      - USER=appuser
+    
+    volumes:
+      - converter-src:/app/converter/src:ro
+      - converter-server:/app/converter/server:ro
+      - app-logs:/app/logs:rw
+      - app-data:/app/data:rw
+    
+    networks:
+      - mt4-network
+    
+    depends_on:
+      mt4-converter:
+        condition: service_healthy
+
+volumes:
+  mt4-data:
+    driver: local
+  converter-src:
+    driver: local
+  converter-examples:
+    driver: local
+  converter-backtesting:
+    driver: local
+  converter-server:
+    driver: local
+  app-logs:
+    driver: local
+  app-data:
+    driver: local
+
+networks:
+  mt4-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
