@@ -130,7 +130,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: ${PWD}/mt4-wine-data
+      device: /home/developer/mql-python-converter/mt4-wine-data
 
 networks:
   mt4-network:
