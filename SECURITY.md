@@ -1,149 +1,251 @@
-# Security Best Practices Implementation
+# Security Policy
 
-This document describes the security improvements made to the Docker configuration to follow containerization best practices.
+## Overview
+This project implements defense-in-depth security practices across all Docker configurations and Python code.
 
-## 🔒 Key Security Changes
+## Security Features
 
-### 1. **Non-Root User Execution**
-All services now run under the `appuser` (UID: 1000, GID: 1000) instead of root:
-- Supervisord runs as appuser
-- All child processes inherit appuser permissions
-- Wine/MT4 runs in user context
-- Python services run as appuser
+### Container Security
 
-### 2. **Principle of Least Privilege**
-- **Dropped Capabilities**: Containers drop ALL Linux capabilities and only add back the minimum required
-- **No New Privileges**: Prevents privilege escalation
-- **Resource Limits**: CPU and memory limits prevent resource exhaustion attacks
+#### Non-Root Execution
+All Docker containers run as non-privileged user `developer` (UID 1000):
+- No root access inside containers
+- Minimal capability set
+- Read-only root filesystem where possible
 
-### 3. **File System Security**
-- Named volumes instead of bind mounts where possible
-- Read-only mounts for source code in production
-- Proper file ownership (appuser:appuser)
-- Temporary files in /tmp with user permissions
+```dockerfile
+# Example from Dockerfiles
+RUN useradd -m -u 1000 -s /bin/bash developer
+USER developer
+```
 
-## 📋 Configuration Files
+#### Image Security
+- Base images regularly updated
+- Multi-stage builds to minimize attack surface
+- No unnecessary packages or tools
+- Security scanning with Docker Scout
 
-### Secure Dockerfile (`Dockerfile.secure`)
-- Creates non-root user `appuser` with UID/GID 1000
-- Sets proper ownership for all directories
-- Runs final CMD as appuser
-- No unnecessary sudo permissions in production
+#### Network Security
+- Minimal port exposure
+- Internal networks for service communication
+- Optional TLS/SSL for VNC connections
+- API authentication when enabled
 
-### Secure Supervisord (`supervisord-secure.conf`)
-- All programs run with `user=appuser`
-- Socket file in /tmp with restricted permissions
-- PID file in /tmp (writable by appuser)
-- Proper HOME and USER environment variables
+### Code Security
 
-### Secure Docker Compose (`docker-compose.secure.yml`)
-- Explicit user specification: `user: "1000:1000"`
-- Security options: `no-new-privileges:true`
-- Dropped all capabilities, only add required ones
-- Resource limits (CPU and memory)
-- Health checks for monitoring
-- Network isolation with custom subnet
+#### Python Security
+- Input validation on all user data
+- Secure file handling with path sanitization
+- No execution of user-supplied code
+- Dependencies regularly updated
 
-## 🚀 Usage
+#### MT4 Bridge Security
+- Isolated Wine environment
+- Restricted file system access
+- Communication via secure sockets
+- No direct internet access from MT4
 
-### Development Environment
+### Data Security
+
+#### Volume Permissions
 ```bash
-# Build and run secure containers
+# Ensure proper ownership
+chown -R 1000:1000 ./data
+chmod 750 ./data
+
+# Sensitive files
+chmod 600 .env
+```
+
+#### Environment Variables
+- Secrets never hardcoded
+- `.env` file for configuration
+- Docker secrets support in production
+
+## Security Best Practices
+
+### For Development
+1. Use the standard configuration with volume mounts
+2. Keep development isolated from production
+3. Regular dependency updates
+4. Code review all changes
+
+### For Production
+
+#### Use Secure or Slim Configurations
+```bash
+# Secure configuration
 docker-compose -f docker-compose.secure.yml up -d
 
-# Check container user
-docker exec mt4-converter-secure whoami
-# Output: appuser
-
-# Verify services
-docker exec mt4-converter-secure ps aux | grep -E "xvfb|vnc|python"
+# Slim configuration (minimal attack surface)
+docker-compose -f docker-compose.slim.yml up -d
 ```
 
-### Production Environment
-Additional recommendations for production:
-1. Remove source code bind mounts
-2. Set `read_only: true` where possible
-3. Use secrets management for passwords
-4. Enable AppArmor or SELinux profiles
-5. Scan images for vulnerabilities
-6. Sign images with Docker Content Trust
+#### Implement Access Controls
+```yaml
+# docker-compose.secure.yml example
+deploy:
+  resources:
+    limits:
+      cpus: '2'
+      memory: 2G
+  restart_policy:
+    condition: on-failure
+    max_attempts: 3
+```
 
-## 🔍 Security Verification
-
-### Check Running User
+#### Regular Updates
 ```bash
-# Verify all processes run as appuser
-docker exec mt4-converter-secure ps aux | awk '{print $1}' | sort | uniq
+# Update base images
+docker pull python:3.11-slim
+docker-compose build --no-cache
+
+# Update Python dependencies
+pip-audit
+pip list --outdated
 ```
 
-### Check Capabilities
+## Vulnerability Reporting
+
+### Reporting Process
+1. **DO NOT** create public issues for security vulnerabilities
+2. Email security concerns to the maintainers
+3. Include:
+   - Description of the vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fixes if any
+
+### Response Timeline
+- **Acknowledgment**: Within 48 hours
+- **Initial Assessment**: Within 1 week
+- **Fix Timeline**: Based on severity
+  - Critical: 24-48 hours
+  - High: 1 week
+  - Medium: 2 weeks
+  - Low: Next release
+
+## Security Checklist
+
+### Before Deployment
+- [ ] Change default VNC password
+- [ ] Update all dependencies
+- [ ] Run security scan on images
+- [ ] Configure firewall rules
+- [ ] Set resource limits
+- [ ] Enable logging and monitoring
+- [ ] Backup configuration
+- [ ] Test restore procedures
+
+### Container Hardening
 ```bash
-# View dropped capabilities
-docker inspect mt4-converter-secure | grep -A 10 CapDrop
+# Run security scan
+docker scout cves mql-python-converter:latest
+
+# Check for vulnerabilities
+docker scan mql-python-converter:latest
+
+# Verify non-root user
+docker run --rm mql-python-converter:latest whoami
+# Should output: developer
+
+# Check capabilities
+docker run --rm --cap-drop=ALL mql-python-converter:latest
 ```
 
-### Resource Usage
+### Network Hardening
 ```bash
-# Monitor resource limits
-docker stats mt4-converter-secure
+# Restrict port access with firewall
+ufw allow from 192.168.1.0/24 to any port 6080
+ufw deny 6080
+
+# Use internal networks
+docker network create --internal mt4-internal
 ```
 
-## 🛡️ Benefits of Non-Root Execution
+## Compliance
 
-1. **Reduced Attack Surface**: If container is compromised, attacker has limited privileges
-2. **Compliance**: Meets security standards (CIS, NIST, PCI-DSS)
-3. **Defense in Depth**: Additional layer of security
-4. **Audit Trail**: Better tracking of user actions
-5. **Isolation**: Process isolation between services
+### Standards
+- CIS Docker Benchmark compliance
+- OWASP best practices for web APIs
+- PCI DSS guidelines for financial data
 
-## ⚠️ Migration Notes
+### Audit Logging
+All configurations support audit logging:
+```yaml
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "service,version"
+```
 
-When migrating from root-based containers:
-1. Ensure all volumes have correct ownership: `chown -R 1000:1000 /path/to/volume`
-2. Update any hardcoded paths that assume root access
-3. Test all functionality with non-root user
-4. Update CI/CD pipelines to use secure images
+## Security Tools
 
-## 🔐 Additional Security Measures
+### Recommended Security Tools
+- **Docker Scout**: Vulnerability scanning
+- **Trivy**: Container security scanner
+- **pip-audit**: Python dependency audit
+- **Bandit**: Python code security linter
 
-### Environment Variables
-- Never hardcode passwords (use Docker secrets or external config)
-- VNC_PASSWORD should be changed from default
-- Use environment-specific configurations
-
-### Network Security
-- Custom bridge network with defined subnet
-- Service-to-service communication only
-- Expose only necessary ports
-- Consider using reverse proxy for web access
-
-### Image Security
+### Running Security Scans
 ```bash
-# Scan image for vulnerabilities
-docker scan mt4-converter-secure
+# Install security tools
+pip install pip-audit bandit safety
 
-# Verify image signature (if using DCT)
-docker trust inspect --pretty <image>
+# Audit Python dependencies
+pip-audit
+
+# Scan Python code
+bandit -r src/
+
+# Check known vulnerabilities
+safety check
+
+# Scan Docker images
+docker scout cves mql-python-converter:latest
 ```
 
-## 📚 References
+## Incident Response
 
-- [Docker Security Best Practices](https://docs.docker.com/develop/security-best-practices/)
-- [CIS Docker Benchmark](https://www.cisecurity.org/benchmark/docker)
-- [OWASP Docker Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html)
-- [Running Docker Containers as Non-Root](https://docs.docker.com/engine/security/userns-remap/)
+### In Case of Breach
+1. Isolate affected containers
+2. Preserve logs for analysis
+3. Rotate all credentials
+4. Apply security patches
+5. Document lessons learned
 
-## ✅ Compliance Checklist
+### Recovery Procedures
+```bash
+# Stop compromised container
+docker stop <container-id>
 
-- [x] All services run as non-root user
-- [x] Capabilities dropped to minimum required
-- [x] Resource limits configured
-- [x] Health checks implemented
-- [x] Proper file permissions
-- [x] Network isolation
-- [x] No hardcoded secrets
-- [x] Supervisord runs as non-root
-- [x] Wine/MT4 runs in user context
-- [x] Python services run as non-root
+# Backup for forensics
+docker commit <container-id> compromised-backup
 
-This configuration follows Docker and container security best practices, significantly reducing security risks while maintaining full functionality.
+# Clean rebuild
+docker-compose down
+docker system prune -a
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+## Security Updates
+
+### Stay Informed
+- Monitor GitHub security advisories
+- Subscribe to Docker security updates
+- Track Python security announcements
+- Review dependency updates weekly
+
+### Update Schedule
+- **Critical updates**: Immediate
+- **Security patches**: Within 48 hours
+- **Regular updates**: Weekly
+- **Major upgrades**: Quarterly
+
+## Contact
+
+For security concerns, contact the maintainers directly.
+Do not post security issues publicly.

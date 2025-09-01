@@ -2,7 +2,7 @@
 set -e
 
 # Set default username if not provided
-USERNAME=${USERNAME:-wineuser}
+USERNAME=${USERNAME:-developer}
 
 echo "Starting MT4 Docker container as user: $USERNAME..."
 

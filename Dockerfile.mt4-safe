@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 # Build arguments for user creation
 ARG USER_ID=1000
 ARG GROUP_ID=1000
-ARG USERNAME=wineuser
+ARG USERNAME=developer
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:1

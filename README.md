@@ -96,6 +96,22 @@ pip install -r requirements.txt
 pip install -r requirements-optimization.txt
 ```
 
+## 🐳 Docker Quick Start
+
+See [DOCKER-VARIANTS.md](DOCKER-VARIANTS.md) for detailed Docker configuration options.
+
+```bash
+# Standard Python environment
+docker-compose up --build
+
+# MT4 with GUI access
+docker-compose -f docker-compose-novnc.yml up --build
+# Access at http://localhost:6080
+
+# Lightweight production
+docker-compose -f docker-compose.slim.yml up --build
+```
+
 ## 🚀 Quick Start
 
 ### Converting Pine Script to Python

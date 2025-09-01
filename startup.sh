@@ -4,12 +4,12 @@
 sleep 5
 
 # Set Wine environment
-export WINEPREFIX=/home/wineuser/.wine
+export WINEPREFIX=/home/developer/.wine
 export WINEDEBUG=-all
 export DISPLAY=:1
 
 # Check if MT4 is already installed
-MT4_PATH="/home/wineuser/.wine/drive_c/Program Files (x86)/MetaTrader 4/terminal.exe"
+MT4_PATH="/home/developer/.wine/drive_c/Program Files (x86)/MetaTrader 4/terminal.exe"
 MT4_ALT_PATH="/app/mt4-terminal/terminal.exe"
 
 # Function to download and install MT4
@@ -37,7 +37,7 @@ install_mt4() {
     # Copy MT4 to alternative location if installed
     if [ -f "$MT4_PATH" ]; then
         echo "Copying MT4 to /app/mt4-terminal..."
-        cp -r "/home/wineuser/.wine/drive_c/Program Files (x86)/MetaTrader 4/"* /app/mt4-terminal/
+        cp -r "/home/developer/.wine/drive_c/Program Files (x86)/MetaTrader 4/"* /app/mt4-terminal/
     fi
 }
 
@@ -52,7 +52,7 @@ if [ -f "$MT4_ALT_PATH" ]; then
     TERMINAL_DIR="/app/mt4-terminal"
 elif [ -f "$MT4_PATH" ]; then
     TERMINAL_PATH="$MT4_PATH"
-    TERMINAL_DIR="/home/wineuser/.wine/drive_c/Program Files (x86)/MetaTrader 4"
+    TERMINAL_DIR="/home/developer/.wine/drive_c/Program Files (x86)/MetaTrader 4"
 else
     echo "MT4 not found, attempting installation..."
     install_mt4

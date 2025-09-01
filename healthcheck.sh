@@ -27,7 +27,7 @@ if ! nc -z localhost 6080 2>/dev/null; then
 fi
 
 # Check Wine status
-if ! su - wineuser -c "wineserver -p0" 2>/dev/null; then
+if ! su - developer -c "wineserver -p0" 2>/dev/null; then
     echo "Wine server is not responding"
     exit 1
 fi

@@ -1,7 +1,14 @@
-# Docker MT4 Setup Guide
+# Docker Setup Guide
 
 ## Overview
-This setup provides a containerized MetaTrader 4 environment with VNC access, Python integration, and proper process management.
+This project provides multiple Docker configurations for different use cases:
+- **Standard**: Basic Python environment for MQL/Pine Script conversion
+- **MT4**: Full MetaTrader 4 integration with Wine
+- **Slim**: Lightweight version with minimal dependencies
+- **Secure**: Security-hardened with non-root user execution
+- **NoVNC**: Browser-based GUI access for MT4
+
+All configurations run with non-root users for enhanced security.
 
 ## Quick Start
 
@@ -15,13 +22,13 @@ This setup provides a containerized MetaTrader 4 environment with VNC access, Py
 #### Option A: Using Docker Compose (Recommended)
 ```bash
 # Start services
-sudo docker-compose -f docker-compose.safe.yml up -d
+docker-compose -f docker-compose.safe.yml up -d
 
 # View logs
-sudo docker-compose -f docker-compose.safe.yml logs -f
+docker-compose -f docker-compose.safe.yml logs -f
 
 # Stop services
-sudo docker-compose -f docker-compose.safe.yml down
+docker-compose -f docker-compose.safe.yml down
 ```
 
 #### Option B: Using the Safe Run Script
@@ -30,7 +37,7 @@ sudo docker-compose -f docker-compose.safe.yml down
 chmod +x docker-safe-run.sh docker-cleanup.sh
 
 # Run the container
-sudo ./docker-safe-run.sh
+./docker-safe-run.sh
 ```
 
 ### 3. Access Services
@@ -49,20 +56,31 @@ sudo ./docker-safe-run.sh
 - **Data Bridge**: localhost:9090
   - Direct socket connection for MT4-Python communication
 
-## File Structure
+## Docker Configurations
 
-```
-mql-python-converter/
-├── Dockerfile.mt4-safe          # Main Docker image definition
-├── docker-compose.safe.yml      # Docker Compose configuration
-├── docker-entrypoint.sh         # Container startup script
-├── healthcheck.sh               # Health check script
-├── supervisord-safe.conf        # Process supervisor configuration
-├── docker-safe-run.sh           # Standalone container runner
-├── docker-cleanup.sh            # Cleanup script
-├── test-docker-setup.sh         # Setup verification script
-└── .env                         # Environment variables
-```
+### Available Dockerfiles
+- `Dockerfile` - Standard Python environment with all dependencies
+- `Dockerfile.mt4` - MetaTrader 4 with Wine integration
+- `Dockerfile.mt4-safe` - Security-hardened MT4 setup (legacy)
+- `Dockerfile.mt4-slim` - Lightweight MT4 configuration
+- `Dockerfile.novnc` - MT4 with web-based VNC access
+- `Dockerfile.secure` - Production-ready secure configuration
+
+### Docker Compose Files
+- `docker-compose.yml` - Standard development setup
+- `docker-compose.mt4.yml` - MT4 integration setup
+- `docker-compose.safe.yml` - Secure MT4 configuration
+- `docker-compose.slim.yml` - Minimal resource usage
+- `docker-compose.secure.yml` - Production security setup
+- `docker-compose-novnc.yml` - Browser-based GUI access
+
+### Support Scripts
+- `docker-entrypoint.sh` - Container initialization
+- `docker-safe-run.sh` - Secure container launcher
+- `docker-cleanup.sh` - Clean up containers and volumes
+- `mt4-docker.sh` - MT4-specific launcher
+- `safe-docker.sh` - Security-focused launcher
+- `setup-docker-env.sh` - Environment setup helper
 
 ## Features
 
@@ -118,9 +136,23 @@ MEMORY_LIMIT=4G
 
 ## Commands
 
-### Build Image
+### Build Images
+
 ```bash
-sudo docker build -f Dockerfile.mt4-safe -t mt4-converter-safe .
+# Standard Python environment
+docker build -t mql-python-converter:latest .
+
+# MT4 with Wine
+docker build -f Dockerfile.mt4 -t mql-python-converter:mt4 .
+
+# Secure configuration
+docker build -f Dockerfile.secure -t mql-python-converter:secure .
+
+# Slim version
+docker build -f Dockerfile.mt4-slim -t mql-python-converter:slim .
+
+# NoVNC for browser access
+docker build -f Dockerfile.novnc -t mql-python-converter:novnc .
 ```
 
 ### Run Tests
@@ -131,10 +163,10 @@ sudo docker build -f Dockerfile.mt4-safe -t mt4-converter-safe .
 ### View Logs
 ```bash
 # All services
-sudo docker-compose -f docker-compose.safe.yml logs -f
+docker-compose -f docker-compose.safe.yml logs -f
 
-# Specific service
-sudo docker logs mt4-safe
+# Specific service  
+docker logs mt4-safe
 
 # Supervisor logs
 sudo docker exec mt4-safe tail -f /app/logs/supervisord.log
@@ -143,25 +175,28 @@ sudo docker exec mt4-safe tail -f /app/logs/supervisord.log
 ### Execute Commands in Container
 ```bash
 # Open shell
-sudo docker exec -it mt4-safe bash
+docker exec -it mt4-safe bash
 
-# Check Wine status
-sudo docker exec mt4-safe su - wineuser -c "wineserver -p0"
+# Check Wine status (for MT4 configurations)
+docker exec mt4-safe su - developer -c "wineserver -p0"
 
 # Check running processes
-sudo docker exec mt4-safe ps aux
+docker exec mt4-safe ps aux
 ```
 
 ### Cleanup
 ```bash
 # Stop and remove containers
-sudo ./docker-cleanup.sh
+./docker-cleanup.sh
 
 # Remove volumes (WARNING: deletes data)
-sudo docker volume rm mql-python-converter_mt4-wine
+docker volume rm mql-python-converter_mt4-wine-data
 
 # Remove images
-sudo docker rmi mt4-converter-safe
+docker rmi mql-python-converter:latest
+docker rmi mql-python-converter:mt4
+docker rmi mql-python-converter:secure
+docker rmi mql-python-converter:slim
 ```
 
 ## Troubleshooting
@@ -210,21 +245,22 @@ sudo docker exec mt4-safe supervisorctl restart all
 ### Wine/MT4 Issues
 ```bash
 # Reset Wine prefix
-sudo docker exec -u wineuser mt4-safe wineboot --init
+docker exec -u developer mt4-safe wineboot --init
 
 # Check Wine version
 sudo docker exec mt4-safe wine --version
 
 # Install MT4 manually
-sudo docker exec -u wineuser mt4-safe wine /path/to/mt4setup.exe
+docker exec -u developer mt4-safe wine /path/to/mt4setup.exe
 ```
 
 ## Security Notes
 
-1. **VNC Password**: Change the default password in production
-2. **Port Exposure**: Use firewall rules to restrict access
-3. **Resource Limits**: Adjust CPU/memory limits as needed
-4. **Volume Permissions**: Ensure proper file permissions
+1. **Non-Root User**: All containers run as non-root user `developer` (UID 1000) for enhanced security
+2. **VNC Password**: Change the default password in production
+3. **Port Exposure**: Use firewall rules to restrict access
+4. **Resource Limits**: Adjust CPU/memory limits as needed
+5. **Volume Permissions**: Ensure proper file permissions match container user (UID 1000)
 
 ## Performance Tuning
 
