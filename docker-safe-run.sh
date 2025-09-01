@@ -21,12 +21,12 @@ cleanup() {
     echo -e "${YELLOW}Cleaning up...${NC}"
     
     # Stop container
-    docker stop $CONTAINER_NAME 2>/dev/null || true
-    docker rm $CONTAINER_NAME 2>/dev/null || true
+    sudo docker stop $CONTAINER_NAME 2>/dev/null || true
+    sudo docker rm $CONTAINER_NAME 2>/dev/null || true
     
     # Kill Wine processes if any
-    docker exec $CONTAINER_NAME sh -c "pkill -f wine || true" 2>/dev/null || true
-    docker exec $CONTAINER_NAME sh -c "wineserver -k || true" 2>/dev/null || true
+    sudo docker exec $CONTAINER_NAME sh -c "pkill -f wine || true" 2>/dev/null || true
+    sudo docker exec $CONTAINER_NAME sh -c "wineserver -k || true" 2>/dev/null || true
     
     echo -e "${GREEN}Cleanup complete${NC}"
 }
@@ -35,21 +35,21 @@ cleanup() {
 trap cleanup EXIT SIGINT SIGTERM
 
 # Check Docker daemon
-if ! docker info >/dev/null 2>&1; then
+if ! sudo docker info >/dev/null 2>&1; then
     echo -e "${RED}Docker daemon is not running${NC}"
     exit 1
 fi
 
 # Clean up any existing container
 echo -e "${YELLOW}Checking for existing containers...${NC}"
-if docker ps -a -q -f name=$CONTAINER_NAME | grep -q .; then
+if sudo docker ps -a -q -f name=$CONTAINER_NAME | grep -q .; then
     echo "Removing existing container..."
-    docker rm -f $CONTAINER_NAME || true
+    sudo docker rm -f $CONTAINER_NAME || true
 fi
 
 # Build the image
 echo -e "${GREEN}Building Docker image...${NC}"
-docker build -f $DOCKERFILE -t $IMAGE_NAME . || {
+sudo docker build -f $DOCKERFILE -t $IMAGE_NAME --build-arg USER_ID=1000 --build-arg GROUP_ID=1000 --build-arg USERNAME=developer . || {
     echo -e "${RED}Failed to build Docker image${NC}"
     exit 1
 }
@@ -57,7 +57,7 @@ docker build -f $DOCKERFILE -t $IMAGE_NAME . || {
 # Run with docker-compose if compose file exists
 if [ -f "$COMPOSE_FILE" ]; then
     echo -e "${GREEN}Starting with Docker Compose...${NC}"
-    docker-compose -f $COMPOSE_FILE up -d
+    sudo docker-compose -f $COMPOSE_FILE up -d
     
     echo -e "${GREEN}MT4 Container started successfully!${NC}"
     echo ""
@@ -67,12 +67,12 @@ if [ -f "$COMPOSE_FILE" ]; then
     echo "  - Python API: http://localhost:8000"
     echo "  - Data Bridge: localhost:9090"
     echo ""
-    echo "To view logs: docker-compose -f $COMPOSE_FILE logs -f"
-    echo "To stop: docker-compose -f $COMPOSE_FILE down"
+    echo "To view logs: sudo docker-compose -f $COMPOSE_FILE logs -f"
+    echo "To stop: sudo docker-compose -f $COMPOSE_FILE down"
 else
     # Run standalone container
     echo -e "${GREEN}Starting Docker container...${NC}"
-    docker run -d \
+    sudo docker run -d \
         --name $CONTAINER_NAME \
         --restart unless-stopped \
         -p 6080:6080 \
@@ -97,8 +97,8 @@ else
     echo "  - Python API: http://localhost:8000"
     echo "  - Data Bridge: localhost:9090"
     echo ""
-    echo "To view logs: docker logs -f $CONTAINER_NAME"
-    echo "To stop: docker stop $CONTAINER_NAME"
+    echo "To view logs: sudo docker logs -f $CONTAINER_NAME"
+    echo "To stop: sudo docker stop $CONTAINER_NAME"
 fi
 
 # Wait for services to be ready
@@ -107,7 +107,7 @@ echo -e "${YELLOW}Waiting for services to start...${NC}"
 sleep 5
 
 # Check health
-if docker exec $CONTAINER_NAME /app/scripts/healthcheck.sh 2>/dev/null; then
+if sudo docker exec $CONTAINER_NAME /app/scripts/healthcheck.sh 2>/dev/null; then
     echo -e "${GREEN}All services are healthy!${NC}"
 else
     echo -e "${YELLOW}Services are still starting up. Please wait...${NC}"

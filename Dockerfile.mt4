@@ -1,5 +1,10 @@
 FROM ubuntu:22.04
 
+# Build arguments for non-root user
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USERNAME=developer
+
 # Avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:99
@@ -29,24 +34,36 @@ RUN dpkg --add-architecture i386 && \
     apt-get install -y --install-recommends winehq-stable && \
     rm -rf /var/lib/apt/lists/*
 
-# Create working directory
+# Create non-root user
+RUN groupadd -g ${GROUP_ID} ${USERNAME} && \
+    useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} && \
+    echo "${USERNAME}:${USERNAME}" | chpasswd
+
+# Create working directory with proper ownership
+RUN mkdir -p /app && chown -R ${USERNAME}:${USERNAME} /app
 WORKDIR /app
 
 # Copy MT4 terminal files
-COPY server/mt4-terminal /app/mt4-terminal
+COPY --chown=${USER_ID}:${GROUP_ID} server/mt4-terminal /app/mt4-terminal
 
 # Copy scripts
-COPY mt4_gui.sh /app/
-COPY mt4_web.sh /app/
-COPY mt4_headless.sh /app/
+COPY --chown=${USER_ID}:${GROUP_ID} mt4_gui.sh /app/
+COPY --chown=${USER_ID}:${GROUP_ID} mt4_web.sh /app/
+COPY --chown=${USER_ID}:${GROUP_ID} mt4_headless.sh /app/
 
 # Make scripts executable and fix line endings
 RUN chmod +x *.sh && \
     sed -i 's/\r$//' *.sh
 
+# Switch to non-root user for Wine initialization
+USER ${USERNAME}
+
 # Initialize Wine prefix
 RUN winecfg -v win7 && \
     wineboot -u
+
+# Switch back to root for supervisor setup
+USER root
 
 # Copy supervisor config
 COPY supervisord.conf /etc/supervisor/conf.d/mt4.conf
@@ -54,5 +71,8 @@ COPY supervisord.conf /etc/supervisor/conf.d/mt4.conf
 # Expose ports
 EXPOSE 8080 5999
 
-# Start supervisor
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+# Run as non-root user
+USER ${USERNAME}
+
+# Start supervisor as non-root
+CMD ["/bin/bash", "-c", "/usr/bin/supervisord -c /etc/supervisor/supervisord.conf"]

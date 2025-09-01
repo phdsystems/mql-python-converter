@@ -6,7 +6,7 @@ services:
       args:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
-        USERNAME: ${CONTAINER_USER:-wineuser}
+        USERNAME: ${CONTAINER_USER:-developer}
     image: mt4-converter-safe:latest
     container_name: mt4-safe
     hostname: mt4-safe
@@ -26,11 +26,11 @@ services:
       - PYTHONUNBUFFERED=1
       - WINEDEBUG=-all
       - TZ=UTC
-      - USERNAME=${CONTAINER_USER:-wineuser}
+      - USERNAME=${CONTAINER_USER:-developer}
     
     volumes:
       # Persistent Wine directory
-      - mt4-wine:/home/${CONTAINER_USER:-wineuser}/.wine
+      - mt4-wine:/home/${CONTAINER_USER:-developer}/.wine
       
       # Application code (bind mounts for development)
       - ./src:/app/converter/src:rw
@@ -96,7 +96,7 @@ services:
       args:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
-        USERNAME: ${CONTAINER_USER:-wineuser}
+        USERNAME: ${CONTAINER_USER:-developer}
     image: mt4-converter-safe:latest
     container_name: python-api
     hostname: python-api

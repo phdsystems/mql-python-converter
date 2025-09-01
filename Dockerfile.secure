@@ -1,5 +1,10 @@
 FROM ubuntu:22.04
 
+# Build arguments for non-root user
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USERNAME=developer
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:1
 ENV VNC_PORT=5901
@@ -38,50 +43,50 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user with specific UID/GID for consistency
-RUN groupadd -g 1000 appuser \
-    && useradd -m -u 1000 -g 1000 -s /bin/bash appuser \
-    && echo "appuser:appuser" | chpasswd
+RUN groupadd -g ${GROUP_ID} ${USERNAME} \
+    && useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} \
+    && echo "${USERNAME}:${USERNAME}" | chpasswd
 
 # Grant specific sudo permissions only for required commands (if needed)
 # For production, remove sudo entirely
-RUN echo "appuser ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl" >> /etc/sudoers.d/appuser \
-    && chmod 0440 /etc/sudoers.d/appuser
+RUN echo "${USERNAME} ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl" >> /etc/sudoers.d/${USERNAME} \
+    && chmod 0440 /etc/sudoers.d/${USERNAME}
 
 # Create application directories with proper ownership
 RUN mkdir -p /app/converter \
     && mkdir -p /app/mt4-terminal \
     && mkdir -p /app/logs \
     && mkdir -p /app/data \
-    && mkdir -p /home/appuser/.vnc \
-    && mkdir -p /home/appuser/.wine \
+    && mkdir -p /home/${USERNAME}/.vnc \
+    && mkdir -p /home/${USERNAME}/.wine \
     && mkdir -p /var/run/supervisor \
-    && chown -R appuser:appuser /app \
-    && chown -R appuser:appuser /home/appuser \
-    && chown -R appuser:appuser /var/run/supervisor
+    && chown -R ${USERNAME}:${USERNAME} /app \
+    && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} \
+    && chown -R ${USERNAME}:${USERNAME} /var/run/supervisor
 
-# Setup VNC password as appuser
-USER appuser
-RUN x11vnc -storepasswd ${VNC_PASSWORD} /home/appuser/.vnc/passwd
+# Setup VNC password as non-root user
+USER ${USERNAME}
+RUN x11vnc -storepasswd ${VNC_PASSWORD} /home/${USERNAME}/.vnc/passwd
 
 # Setup noVNC (as root for system install, then set permissions)
 USER root
 RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html \
-    && chown -R appuser:appuser /usr/share/novnc
+    && chown -R ${USERNAME}:${USERNAME} /usr/share/novnc
 
 # Copy application files with proper ownership
 WORKDIR /app/converter
-COPY --chown=appuser:appuser . .
+COPY --chown=${USER_ID}:${GROUP_ID} . .
 
 # Install uv package manager as root
 USER root
 RUN curl -LsSf https://astral.sh/uv/install.sh | INSTALLER_NO_MODIFY_PATH=1 sh -s -- --to /usr/local/bin
 
 # Copy project files for dependency installation
-COPY --chown=appuser:appuser pyproject.toml /app/converter/
-COPY --chown=appuser:appuser src /app/converter/src/
+COPY --chown=${USER_ID}:${GROUP_ID} pyproject.toml /app/converter/
+COPY --chown=${USER_ID}:${GROUP_ID} src /app/converter/src/
 
-# Install Python dependencies as appuser
-USER appuser
+# Install Python dependencies as non-root user
+USER ${USERNAME}
 RUN cd /app/converter && \
     /usr/local/bin/uv venv .venv && \
     . .venv/bin/activate && \
@@ -92,14 +97,14 @@ ENV PATH="/app/converter/.venv/bin:$PATH"
 ENV VIRTUAL_ENV=/app/converter/.venv
 
 # Copy configuration files
-COPY --chown=appuser:appuser startup.sh /app/
-COPY --chown=appuser:appuser supervisord-secure.conf /home/appuser/supervisord.conf
+COPY --chown=${USER_ID}:${GROUP_ID} startup.sh /app/
+COPY --chown=${USER_ID}:${GROUP_ID} supervisord-secure.conf /home/${USERNAME}/supervisord.conf
 RUN chmod +x /app/startup.sh
 
 # Configure Wine prefix as appuser
 RUN winecfg -v win10 \
     && wineboot --init \
-    && mkdir -p "/home/appuser/.wine/drive_c/Program Files (x86)"
+    && mkdir -p "/home/${USERNAME}/.wine/drive_c/Program Files (x86)"
 
 # Set working directory
 WORKDIR /app/converter
@@ -115,7 +120,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:6080/ || exit 1
 
 # Run as non-root user
-USER appuser
+USER ${USERNAME}
 
 # Start supervisor as non-root
-CMD ["/usr/bin/supervisord", "-n", "-c", "/home/appuser/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-n", "-c", "/home/${USERNAME}/supervisord.conf"]

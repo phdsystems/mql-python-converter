@@ -8,7 +8,7 @@ services:
       args:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
-        USERNAME: ${CONTAINER_USER:-wineuser}
+        USERNAME: ${CONTAINER_USER:-developer}
     image: mt4-converter-slim:latest
     container_name: mt4-slim
     hostname: mt4-slim
@@ -28,11 +28,11 @@ services:
       - PYTHONUNBUFFERED=1
       - WINEDEBUG=-all
       - TZ=UTC
-      - USERNAME=${CONTAINER_USER:-wineuser}
+      - USERNAME=${CONTAINER_USER:-developer}
     
     volumes:
       # Persistent Wine directory
-      - mt4-wine-slim:/home/${CONTAINER_USER:-wineuser}/.wine
+      - mt4-wine-slim:/home/${CONTAINER_USER:-developer}/.wine
       
       # Application code
       - ./src:/app/converter/src:rw

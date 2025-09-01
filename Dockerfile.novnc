@@ -1,12 +1,17 @@
 FROM ubuntu:22.04
 
+# Build arguments for non-root user
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USERNAME=developer
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:99
 ENV NOVNC_PORT=6080
 ENV VNC_PORT=5999
 ENV VNC_PASSWORD=mt4vnc
 ENV WINEDEBUG=-all
-ENV WINEPREFIX=/home/mt4user/.wine
+ENV WINEPREFIX=/home/developer/.wine
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -49,22 +54,22 @@ RUN git clone https://github.com/novnc/noVNC.git /opt/novnc && \
     ln -s /opt/novnc/vnc.html /opt/novnc/index.html
 
 # Create non-root user for MT4
-RUN useradd -m -s /bin/bash mt4user && \
-    echo "mt4user:mt4pass" | chpasswd && \
-    usermod -aG sudo mt4user
+RUN groupadd -g ${GROUP_ID} ${USERNAME} && \
+    useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} && \
+    echo "${USERNAME}:${USERNAME}" | chpasswd
 
 # Create necessary directories
-RUN mkdir -p /home/mt4user/.wine && \
-    mkdir -p /home/mt4user/mt4 && \
+RUN mkdir -p /home/${USERNAME}/.wine && \
+    mkdir -p /home/${USERNAME}/mt4 && \
     mkdir -p /var/log/supervisor && \
-    mkdir -p /home/mt4user/.vnc
+    mkdir -p /home/${USERNAME}/.vnc
 
 # Copy MT4 terminal and configuration
-COPY --chown=mt4user:mt4user server/mt4-terminal /home/mt4user/mt4
-COPY --chown=mt4user:mt4user server/mt4-terminal/config /home/mt4user/mt4/config
+COPY --chown=${USER_ID}:${GROUP_ID} server/mt4-terminal /home/${USERNAME}/mt4
+COPY --chown=${USER_ID}:${GROUP_ID} server/mt4-terminal/config /home/${USERNAME}/mt4/config
 
 # Set up VNC password
-RUN x11vnc -storepasswd ${VNC_PASSWORD} /home/mt4user/.vnc/passwd
+RUN x11vnc -storepasswd ${VNC_PASSWORD} /home/${USERNAME}/.vnc/passwd
 
 # Copy supervisor configuration
 COPY supervisord-novnc.conf /etc/supervisor/conf.d/supervisord.conf
@@ -80,7 +85,7 @@ RUN chmod +x /usr/local/bin/healthcheck.sh && \
     dos2unix /usr/local/bin/healthcheck.sh
 
 # Set ownership
-RUN chown -R mt4user:mt4user /home/mt4user
+RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
 
 # Expose ports
 EXPOSE 6080 5999
@@ -90,8 +95,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD /usr/local/bin/healthcheck.sh
 
 # Switch to non-root user
-USER mt4user
-WORKDIR /home/mt4user
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
 
 # Initialize Wine prefix
 RUN winecfg || true

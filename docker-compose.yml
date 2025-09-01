@@ -2,7 +2,12 @@ version: '3.8'
 
 services:
   mt4-converter:
-    build: .
+    build:
+      context: .
+      args:
+        USER_ID: 1000
+        GROUP_ID: 1000
+        USERNAME: developer
     container_name: mt4-converter
     restart: unless-stopped
     ports:
@@ -18,7 +23,7 @@ services:
       - PYTHONUNBUFFERED=1
       - WINEDEBUG=-all
     volumes:
-      - mt4-data:/home/wineuser/.wine
+      - mt4-data:/home/developer/.wine
       - ./src:/app/converter/src
       - ./examples:/app/converter/examples
       - ./backtesting:/app/converter/backtesting
@@ -33,7 +38,12 @@ services:
     tty: true
     
   python-server:
-    build: .
+    build:
+      context: .
+      args:
+        USER_ID: 1000
+        GROUP_ID: 1000
+        USERNAME: developer
     container_name: python-server
     command: python /app/converter/server/mt4_server.py
     restart: unless-stopped
