@@ -1,0 +1,115 @@
+# syntax=docker/dockerfile:1.4
+# BuildKit optimized build with parallelization
+
+FROM ubuntu:22.04
+
+# Build arguments
+ARG USER_ID=1000
+ARG GROUP_ID=1000  
+ARG USERNAME=wineuser
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    DISPLAY=:1 \
+    VNC_PORT=5901 \
+    NOVNC_PORT=6080 \
+    VNC_PASSWORD=mt4vnc \
+    PYTHONUNBUFFERED=1 \
+    WINEDEBUG=-all
+
+# Use BuildKit cache mounts for ALL apt operations in one layer
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    # Basic tools
+    ca-certificates \
+    curl \
+    wget \
+    gnupg2 \
+    software-properties-common \
+    # VNC and display
+    xvfb \
+    x11vnc \
+    novnc \
+    websockify \
+    supervisor \
+    fluxbox \
+    # Python
+    python3-minimal \
+    python3-pip \
+    # Required i386 libs for Wine
+    libc6:i386 \
+    libgcc-s1:i386 \
+    libstdc++6:i386 \
+    && wget -qO- https://dl.winehq.org/wine-builds/winehq.key | apt-key add - \
+    && add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ jammy main' \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends winehq-stable \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/share/doc/* \
+    && rm -rf /usr/share/man/* \
+    && rm -rf /usr/share/locale/*
+
+# Install Python packages with pip cache
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install --no-compile \
+    flask \
+    flask-cors \
+    websockets \
+    numpy \
+    pandas
+
+# Create user with proper UID/GID
+RUN groupadd -g ${GROUP_ID} ${USERNAME} \
+    && useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} \
+    && echo "${USERNAME}:${USERNAME}" | chpasswd
+
+# Setup VNC password
+RUN mkdir -p /home/${USERNAME}/.vnc \
+    && x11vnc -storepasswd ${VNC_PASSWORD} /home/${USERNAME}/.vnc/passwd \
+    && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.vnc
+
+# Setup noVNC
+RUN ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
+
+# Create application directories
+RUN mkdir -p /app/converter /app/logs /app/data /app/scripts /var/run/supervisor \
+    && chown -R ${USERNAME}:${USERNAME} /app \
+    && chmod 755 /var/run/supervisor
+
+# Copy requirements first for better caching
+COPY --chown=${USER_ID}:${GROUP_ID} requirements.txt /app/converter/
+
+# Copy scripts with proper ownership
+COPY --chown=${USER_ID}:${GROUP_ID} docker-entrypoint.sh healthcheck.sh /app/scripts/
+RUN chmod +x /app/scripts/*.sh
+
+# Copy supervisor configuration template
+COPY supervisord-safe.conf.template /etc/supervisor/conf.d/supervisord.conf.template
+
+# Copy application files (this layer changes most often, so it's last)
+WORKDIR /app/converter
+COPY --chown=${USER_ID}:${GROUP_ID} . .
+
+# Initialize Wine prefix as the container user
+USER ${USERNAME}
+RUN winecfg -v win10 && \
+    wineboot --init && \
+    mkdir -p "/home/${USERNAME}/.wine/drive_c/Program Files (x86)"
+
+# Switch back to root for entrypoint
+USER root
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /app/scripts/healthcheck.sh || exit 1
+
+# Expose ports
+EXPOSE ${VNC_PORT} ${NOVNC_PORT} 8000 9090
+
+# Entry point
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+CMD ["/bin/bash", "-c", "su - ${USERNAME} -c '/usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf'"]

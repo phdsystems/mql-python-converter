@@ -1,5 +1,10 @@
 FROM ubuntu:22.04
 
+# Build arguments for user creation
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USERNAME=wineuser
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:1
 ENV VNC_PORT=5901
@@ -40,15 +45,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create user for Wine with proper UID/GID
-RUN groupadd -g 1000 wineuser \
-    && useradd -m -u 1000 -g 1000 -s /bin/bash wineuser \
-    && echo "wineuser:wineuser" | chpasswd \
-    && usermod -aG sudo wineuser
+RUN groupadd -g ${GROUP_ID} ${USERNAME} \
+    && useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} \
+    && echo "${USERNAME}:${USERNAME}" | chpasswd \
+    && usermod -aG sudo ${USERNAME}
 
 # Setup VNC password
-RUN mkdir -p /home/wineuser/.vnc \
-    && x11vnc -storepasswd ${VNC_PASSWORD} /home/wineuser/.vnc/passwd \
-    && chown -R wineuser:wineuser /home/wineuser/.vnc
+RUN mkdir -p /home/${USERNAME}/.vnc \
+    && x11vnc -storepasswd ${VNC_PASSWORD} /home/${USERNAME}/.vnc/passwd \
+    && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.vnc
 
 # Setup noVNC
 RUN ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
@@ -60,33 +65,44 @@ RUN mkdir -p /app/converter \
     && mkdir -p /app/data \
     && mkdir -p /app/scripts \
     && mkdir -p /var/run/supervisor \
-    && chown -R wineuser:wineuser /app \
+    && chown -R ${USERNAME}:${USERNAME} /app \
     && chmod 755 /var/run/supervisor
 
-# Copy application files
-WORKDIR /app/converter
-COPY --chown=wineuser:wineuser . .
+# Copy requirements file first for better caching
+COPY requirements.txt /app/converter/requirements.txt
 
-# Install Python dependencies
-RUN pip3 install --no-cache-dir flask flask-cors websockets numpy pandas || true
+# Install uv for fast Python package management
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.cargo/bin/uv /usr/local/bin/uv && \
+    rm -rf /root/.cargo
+
+# Install Python dependencies using uv (much faster than pip)
+WORKDIR /app/converter
+RUN uv pip install --system -r requirements.txt || \
+    pip3 install --no-cache-dir -r requirements.txt || true
+
+# Copy application files
+COPY --chown=${USER_ID}:${GROUP_ID} . .
 
 # Copy and prepare scripts
-COPY --chown=wineuser:wineuser docker-entrypoint.sh /app/scripts/
-COPY --chown=wineuser:wineuser healthcheck.sh /app/scripts/
+COPY --chown=${USER_ID}:${GROUP_ID} docker-entrypoint.sh /app/scripts/
+COPY --chown=${USER_ID}:${GROUP_ID} healthcheck.sh /app/scripts/
 RUN chmod +x /app/scripts/*.sh && dos2unix /app/scripts/*.sh || true
 
 # Setup supervisor configuration with proper permissions
-COPY supervisord-safe.conf /etc/supervisor/conf.d/supervisord.conf
-RUN chmod 644 /etc/supervisor/conf.d/supervisord.conf
+COPY supervisord-safe.conf.template /etc/supervisor/conf.d/supervisord.conf.template
+RUN chmod 644 /etc/supervisor/conf.d/supervisord.conf.template \
+    && chown -R ${USERNAME}:${USERNAME} /var/run/supervisor \
+    && chmod 755 /var/run/supervisor
 
-# Create Wine prefix as wineuser
-USER wineuser
+# Create Wine prefix as the container user
+USER ${USERNAME}
 RUN winecfg -v win10 \
     && wineboot --init \
-    && mkdir -p /home/wineuser/.wine/drive_c/Program\ Files\ \(x86\)/
+    && mkdir -p /home/${USERNAME}/.wine/drive_c/Program\ Files\ \(x86\)/
 
-# Switch back to root for supervisor
-USER root
+# Stay as container user for all processes
+USER ${USERNAME}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
@@ -96,5 +112,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 EXPOSE ${VNC_PORT} ${NOVNC_PORT} 8000 9090
 
 # Entry point with proper signal handling
+USER root
 ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
-CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
+CMD ["/bin/bash", "-c", "su - ${USERNAME} -c '/usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf'"]

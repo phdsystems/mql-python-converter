@@ -1,27 +1,30 @@
 #!/bin/bash
 set -e
 
-echo "Starting MT4 Docker container..."
+# Set default username if not provided
+USERNAME=${USERNAME:-wineuser}
+
+echo "Starting MT4 Docker container as user: $USERNAME..."
 
 # Cleanup function
 cleanup() {
     echo "Received shutdown signal, cleaning up..."
     
-    # Kill Wine processes
-    pkill -f wine || true
-    pkill -f wineserver || true
-    wineserver -k || true
+    # Kill processes owned by container user
+    su - $USERNAME -c "pkill -f wine" || true
+    su - $USERNAME -c "pkill -f wineserver" || true
+    su - $USERNAME -c "wineserver -k" || true
     
-    # Kill VNC processes
-    pkill -f x11vnc || true
-    pkill -f Xvfb || true
-    pkill -f websockify || true
+    # Kill VNC processes owned by container user
+    su - $USERNAME -c "pkill -f x11vnc" || true
+    su - $USERNAME -c "pkill -f Xvfb" || true
+    su - $USERNAME -c "pkill -f websockify" || true
     
-    # Kill Python processes
-    pkill -f python3 || true
+    # Kill Python processes owned by container user
+    su - $USERNAME -c "pkill -f python3" || true
     
     # Cleanup supervisor
-    supervisorctl stop all || true
+    su - $USERNAME -c "supervisorctl stop all" || true
     
     echo "Cleanup complete"
     exit 0
@@ -36,20 +39,24 @@ mkdir -p /app/data
 mkdir -p /var/run/supervisor
 
 # Fix permissions
-chown -R wineuser:wineuser /app/logs /app/data 2>/dev/null || true
+chown -R $USERNAME:$USERNAME /app/logs /app/data /var/run/supervisor 2>/dev/null || true
 chmod 755 /var/run/supervisor
 
 # Setup display
 export DISPLAY=:1
 echo "Display set to $DISPLAY"
 
+# Generate supervisord config from template
+echo "Generating supervisord config for user: $USERNAME"
+sed "s/__USERNAME__/$USERNAME/g" /etc/supervisor/conf.d/supervisord.conf.template > /etc/supervisor/conf.d/supervisord.conf
+
 # Initialize Wine environment
-su - wineuser -c "wineboot --init" || true
+su - $USERNAME -c "wineboot --init" || true
 
 # Check if MT4 terminal exists
-if [ ! -f "/home/wineuser/.wine/drive_c/Program Files (x86)/MetaTrader 4/terminal.exe" ]; then
+if [ ! -f "/home/$USERNAME/.wine/drive_c/Program Files (x86)/MetaTrader 4/terminal.exe" ]; then
     echo "MT4 not found, downloading and installing..."
-    su - wineuser -c "cd /tmp && \
+    su - $USERNAME -c "cd /tmp && \
         wget -q https://download.mql5.com/cdn/web/metaquotes.software.corp/mt4/mt4setup.exe && \
         wine mt4setup.exe /auto" || echo "MT4 installation may require manual setup"
 fi

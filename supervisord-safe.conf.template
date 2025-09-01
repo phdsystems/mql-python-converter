@@ -1,13 +1,13 @@
 [supervisord]
 nodaemon=true
-user=wineuser
+user=__USERNAME__
 logfile=/app/logs/supervisord.log
 pidfile=/var/run/supervisor/supervisord.pid
 childlogdir=/app/logs
 
 [program:xvfb]
 command=/usr/bin/Xvfb :1 -screen 0 1280x720x24
-user=wineuser
+user=__USERNAME__
 autostart=true
 autorestart=true
 stdout_logfile=/app/logs/xvfb.log
@@ -16,8 +16,8 @@ priority=1
 
 [program:fluxbox]
 command=/usr/bin/fluxbox
-user=wineuser
-environment=DISPLAY=":1",HOME="/home/wineuser"
+user=__USERNAME__
+environment=DISPLAY=":1",HOME="/home/__USERNAME__"
 autostart=true
 autorestart=true
 stdout_logfile=/app/logs/fluxbox.log
@@ -26,8 +26,8 @@ priority=2
 startsecs=5
 
 [program:x11vnc]
-command=/usr/bin/x11vnc -display :1 -rfbport 5901 -forever -shared -rfbauth /home/wineuser/.vnc/passwd
-user=wineuser
+command=/usr/bin/x11vnc -display :1 -rfbport 5901 -forever -shared -rfbauth /home/__USERNAME__/.vnc/passwd
+user=__USERNAME__
 autostart=true
 autorestart=true
 stdout_logfile=/app/logs/x11vnc.log
@@ -37,7 +37,7 @@ startsecs=5
 
 [program:novnc]
 command=/usr/share/novnc/utils/launch.sh --vnc localhost:5901 --listen 6080
-user=wineuser
+user=__USERNAME__
 autostart=true
 autorestart=true
 stdout_logfile=/app/logs/novnc.log
@@ -47,7 +47,7 @@ startsecs=5
 
 [program:wine-init]
 command=wineserver -p
-user=wineuser
+user=__USERNAME__
 autostart=true
 autorestart=false
 stdout_logfile=/app/logs/wine-init.log
@@ -57,7 +57,7 @@ startsecs=2
 
 [program:python-api]
 command=python3 /app/converter/server/mt4_server.py
-user=wineuser
+user=__USERNAME__
 directory=/app/converter
 autostart=true
 autorestart=true

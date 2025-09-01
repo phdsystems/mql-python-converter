@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  mt4-slim:
+    build: 
+      context: .
+      dockerfile: Dockerfile.mt4-slim
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+        USERNAME: ${CONTAINER_USER:-wineuser}
+    image: mt4-converter-slim:latest
+    container_name: mt4-slim
+    hostname: mt4-slim
+    restart: unless-stopped
+    
+    ports:
+      - "6080:6080"  # noVNC web interface
+      - "5901:5901"  # VNC port
+      - "8000:8000"  # Python API server
+      - "9090:9090"  # Data bridge port
+    
+    environment:
+      - DISPLAY=:1
+      - VNC_PASSWORD=mt4vnc
+      - VNC_RESOLUTION=1280x720
+      - VNC_DEPTH=24
+      - PYTHONUNBUFFERED=1
+      - WINEDEBUG=-all
+      - TZ=UTC
+      - USERNAME=${CONTAINER_USER:-wineuser}
+    
+    volumes:
+      # Persistent Wine directory
+      - mt4-wine-slim:/home/${CONTAINER_USER:-wineuser}/.wine
+      
+      # Application code
+      - ./src:/app/converter/src:rw
+      - ./examples:/app/converter/examples:rw
+      - ./backtesting:/app/converter/backtesting:rw
+      - ./server:/app/converter/server:rw
+      
+      # Data and logs
+      - ./logs:/app/logs:rw
+      - ./data:/app/data:rw
+    
+    networks:
+      - mt4-network
+    
+    shm_size: '1gb'
+    stdin_open: true
+    tty: true
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  mt4-wine-slim:
+
+networks:
+  mt4-network:
+    driver: bridge

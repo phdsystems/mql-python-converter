@@ -1,0 +1,72 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+*.md
+docs/
+LICENSE
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Logs and data
+logs/
+*.log
+data/
+*.csv
+*.json
+
+# Wine/MT4 runtime files
+*.wine/
+*.exe
+*.dll
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# Node modules (if any)
+node_modules/
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# Tests
+tests/
+test/
+*_test.py
+test_*.py

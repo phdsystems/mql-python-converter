@@ -1,10 +1,12 @@
-version: '3.8'
-
 services:
   mt4-safe:
     build: 
       context: .
       dockerfile: Dockerfile.mt4-safe
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+        USERNAME: ${CONTAINER_USER:-wineuser}
     image: mt4-converter-safe:latest
     container_name: mt4-safe
     hostname: mt4-safe
@@ -24,10 +26,11 @@ services:
       - PYTHONUNBUFFERED=1
       - WINEDEBUG=-all
       - TZ=UTC
+      - USERNAME=${CONTAINER_USER:-wineuser}
     
     volumes:
       # Persistent Wine directory
-      - mt4-wine:/home/wineuser/.wine
+      - mt4-wine:/home/${CONTAINER_USER:-wineuser}/.wine
       
       # Application code (bind mounts for development)
       - ./src:/app/converter/src:rw
@@ -79,7 +82,7 @@ services:
     
     # Health check
     healthcheck:
-      test: ["/app/scripts/healthcheck.sh"]
+      test: ["CMD", "/app/scripts/healthcheck.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -90,6 +93,10 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile.mt4-safe
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+        USERNAME: ${CONTAINER_USER:-wineuser}
     image: mt4-converter-safe:latest
     container_name: python-api
     hostname: python-api
@@ -126,11 +133,6 @@ services:
 
 volumes:
   mt4-wine:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/developer/mql-python-converter/mt4-wine-data
 
 networks:
   mt4-network:
